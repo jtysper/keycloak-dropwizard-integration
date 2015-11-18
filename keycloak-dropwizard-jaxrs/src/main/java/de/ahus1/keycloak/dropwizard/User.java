@@ -1,6 +1,7 @@
 package de.ahus1.keycloak.dropwizard;
 
 import org.keycloak.KeycloakSecurityContext;
+import org.keycloak.representations.AccessToken;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.ForbiddenException;
@@ -15,10 +16,17 @@ public class User extends AbstractUser {
         super(request, securityContext);
     }
 
-    public void checkUserInRole(String role) {
-        if (!securityContext.getToken().getRealmAccess().isUserInRole(role)) {
+    public void checkUserInRole(String role, String resource) {
+        if(!access(resource).isUserInRole(role)) {
             throw new ForbiddenException();
         }
+    }
+
+    private AccessToken.Access access(String resource) {
+        if(resource == null) {
+            throw new ForbiddenException();
+        }
+        return securityContext.getToken().getResourceAccess(resource);
     }
 
     public String getName() {

@@ -6,10 +6,16 @@ import javax.ws.rs.ForbiddenException;
 
 public class UserAuthorizer implements Authorizer<User> {
 
+    private final String resource;
+
+    public UserAuthorizer(String resource) {
+        this.resource = resource;
+    }
+
     @Override
     public boolean authorize(User user, String role) {
         try {
-            user.checkUserInRole(role);
+            user.checkUserInRole(role, resource);
             return true;
         } catch (ForbiddenException e) {
             return false;

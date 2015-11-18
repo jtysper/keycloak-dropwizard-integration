@@ -19,16 +19,17 @@ import java.security.Principal;
 import java.util.Locale;
 
 public abstract class KeycloakBundle<T> implements ConfiguredBundle<T> {
-
     // tag::keycloak[]
 
     @Override
     public void run(T configuration, Environment environment) throws Exception {
 
+        KeycloakConfiguration keycloakConfiguration = getKeycloakConfiguration(configuration);
+
         /* setup the authenticator in front of the requests to allow for pre-auth integration */
         // tag::authenticator[]
         KeycloakJettyAuthenticator keycloak = new KeycloakDropwizardAuthenticator();
-        keycloak.setAdapterConfig(getKeycloakConfiguration(configuration));
+        keycloak.setAdapterConfig(keycloakConfiguration);
         ConstraintSecurityHandler securityHandler = new ConstraintSecurityHandler();
         environment.getApplicationContext().setSecurityHandler(securityHandler);
         environment.getApplicationContext().getSecurityHandler().setAuthenticator(keycloak);
@@ -43,7 +44,7 @@ public abstract class KeycloakBundle<T> implements ConfiguredBundle<T> {
         environment.jersey().register(new AuthValueFactoryProvider.Binder<>(getUserClass()));
         // end::authfactory[]
 
-        if (getKeycloakConfiguration(configuration).isBearerOnly()) {
+        if (keycloakConfiguration.isBearerOnly()) {
             // no session needed
         } else if (getKeycloakConfiguration(configuration).getTokenStore() != null &&
                 getKeycloakConfiguration(configuration).getTokenStore().toLowerCase(Locale.ENGLISH)
@@ -54,6 +55,8 @@ public abstract class KeycloakBundle<T> implements ConfiguredBundle<T> {
             environment.jersey().register(HttpSessionFactory.class);
             environment.servlets().setSessionHandler(new SessionHandler());
         }
+
+
     }
 
     /**
@@ -64,10 +67,12 @@ public abstract class KeycloakBundle<T> implements ConfiguredBundle<T> {
      * @return Keycloak auth factory
      */
     protected ContainerRequestFilter createAuthFactory(T configuration) {
+        KeycloakConfiguration keycloakConfiguration = getKeycloakConfiguration(configuration);
+
         return new KeycloakAuthFilter.Builder<Principal>()
-                .setConfig(getKeycloakConfiguration(configuration))
+                .setConfig(keycloakConfiguration)
                 .setAuthenticator(createAuthenticator())
-                .setAuthorizer(createAuthorizer())
+                .setAuthorizer(createAuthorizer(keycloakConfiguration.getResource()))
                 .setRealm(getRealm(configuration))
                 .buildAuthFilter();
     }
@@ -89,8 +94,8 @@ public abstract class KeycloakBundle<T> implements ConfiguredBundle<T> {
      *
      * @return the class.
      */
-    protected Authorizer createAuthorizer() {
-        return new UserAuthorizer();
+    protected Authorizer createAuthorizer(String resource) {
+        return new UserAuthorizer(resource);
     }
 
     /**
